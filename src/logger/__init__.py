@@ -4,27 +4,44 @@ from datetime import datetime
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+# Logging configuration/constants
 LOG_DIR = "logs"
+LOG_FILE = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+MAX_LOG_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+BACKUP_COUNT = 5 # Number of backup log files to keep
+
+# Create log directory if it doesn't exist
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 log_dir_path = BASE_DIR / LOG_DIR
 os.makedirs(log_dir_path, exist_ok=True)
+log_file_path = log_dir_path / LOG_FILE
 
-LOG_FILE = log_dir_path / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+def setup_logger():
+    # Create a logger with a rotating file handler and console handler
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
 
-logger = logging.getLogger("bosch_logger")
-logger.setLevel(logging.INFO)
+    #Prevent duplicate handlers if setup_logger is called multiple times
+    if logger.handlers():
+        return logger
+    
+    # Define log message format(formatter)
+    formatter = logging.Formatter(
+        "[%(asctime)s] %(name)s - %(levelname)s - %(message)s"
+    )
 
-formatter = logging.Formatter(
-    "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
-)
+    # File handler with rotation
+    file_handler = RotatingFileHandler(log_file_path, maxBytes=MAX_LOG_FILE_SIZE, backupCount=BACKUP_COUNT)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)  # Log all levels to file
 
-# File handler
-file_handler = logging.FileHandler(LOG_FILE)
-file_handler.setFormatter(formatter)
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)  # Log INFO and above to console
 
-# Console handler
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
+    # Add handlers to the logger
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    return logger
 
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)

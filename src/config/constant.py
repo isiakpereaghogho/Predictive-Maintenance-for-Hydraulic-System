@@ -7,7 +7,7 @@ failure_data = os.path.join(BASE_DIR, 'Dataset', 'failure_labels.csv')
 sensor_data = os.path.join(BASE_DIR, 'Dataset', 'sensor_telemetry_cleaneed.csv')
 maintenance_data = os.path.join(BASE_DIR, 'Dataset', 'maintenance_log.csv')
 
-cleaned_data = os.path.join(BASE_DIR, 'Dataset', 'cleaned_data', 'bosch_cleaned_data.csv')
+cleaned_data = os.path.join(BASE_DIR, 'Dataset', 'cleaned_data', 'cleaned_data.csv')
 featured_data = os.path.join(BASE_DIR, 'Dataset', 'featured_data', 'rul_featured_data.csv')
 featured_data_json = os.path.join(BASE_DIR, 'Dataset', 'featured_data', 'bosch_featured_set.json')
 

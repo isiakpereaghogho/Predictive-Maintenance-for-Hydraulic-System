@@ -1,6 +1,11 @@
 import os
 import pandas as pd
-
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+import warnings
+warnings.filterwarnings("ignore")
 from src.config.constant import (
     sensor_data,
     maintenance_data,
@@ -8,6 +13,10 @@ from src.config.constant import (
     failure_data
 )
 
+from src.logger import setup_logger
+from src.exceptions import CustomException
+
+logger = setup_logger()
 
 class DataIngestion:
     def __init__(self):
@@ -29,62 +38,20 @@ class DataIngestion:
         return pd.read_csv(self.failure_path)
 
     def load_all_data(self):
-        sensor_df = self.load_sensor_data()
-        maintenance_df = self.load_maintenance_data()
-        equipment_df = self.load_equipment_data()
-        failure_df = self.load_failure_data()
+        try:
+            sensor_df = self.load_sensor_data()
+            maintenance_df = self.load_maintenance_data()
+            equipment_df = self.load_equipment_data()
+            failure_df = self.load_failure_data()
+            print(sensor_df.head())
+            print(maintenance_df.head())
+            print(equipment_df.head())
+            print(failure_df.head())
+            logger.info("Data loaded successfully")
 
-        return sensor_df, maintenance_df, equipment_df, failure_df
+            return sensor_df, maintenance_df, equipment_df, failure_df
+        
+        except Exception as e:
+            logger.error(f"Error occurred while loading data: {e}")
+            raise CustomException(e)
 
-
-if __name__ == "__main__":
-    ingestion = DataIngestion()
-
-    sensor_df, maintenance_df, equipment_df, failure_df = ingestion.load_all_data()
-
-    print("Sensor data shape:", sensor_df.shape)
-    print("Maintenance data shape:", maintenance_df.shape)
-    print("Equipment data shape:", equipment_df.shape)
-    print("Failure data shape:", failure_df.shape)
-
-    print("Sensor data:")
-    print(sensor_df.head())
-    print("Maintenance data:")
-    print(maintenance_df.head())
-    print("Equipment data:")
-    print(equipment_df.head())
-    print("Failure data:")
-    print(failure_df.head())
-
-    print("Sensor data null values:", sensor_df.isnull().sum())
-    print("Maintenance data null values:", maintenance_df.isnull().sum())
-    print("Equipment data null values:", equipment_df.isnull().sum())
-    print("Failure data null values:", failure_df.isnull().sum())
-
-    print("Sensor data duplicate values:", sensor_df.duplicated().sum())
-    print("Maintenance data duplicate values:", maintenance_df.duplicated().sum())
-    print("Equipment data duplicate values:", equipment_df.duplicated().sum())
-    print("Failure data duplicate values:", failure_df.duplicated().sum())
-
-    print("Sensor data dtypes:", sensor_df.dtypes)
-    print("Maintenance data dtypes:", maintenance_df.dtypes)
-    print("Equipment data dtypes:", equipment_df.dtypes)
-    print("Failure data dtypes:", failure_df.dtypes)
-
-    print("Sensor data info:")
-    sensor_df.info()
-    print("Maintenance data info:")
-    maintenance_df.info()
-    print("Equipment data info:")
-    equipment_df.info()
-    print("Failure data info:")
-    failure_df.info()
-
-    print("Sensor data describe:")
-    print(sensor_df.describe())
-    print("Maintenance data describe:")
-    print(maintenance_df.describe())
-    print("Equipment data describe:")
-    print(equipment_df.describe())
-    print("Failure data describe:")
-    print(failure_df.describe())
