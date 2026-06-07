@@ -22,7 +22,7 @@ def setup_logger():
     logger.setLevel(logging.DEBUG)
 
     #Prevent duplicate handlers if setup_logger is called multiple times
-    if logger.handlers():
+    if logger.handlers:
         return logger
     
     # Define log message format(formatter)

@@ -1,4 +1,5 @@
 import os
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -53,5 +54,5 @@ class DataIngestion:
         
         except Exception as e:
             logger.error(f"Error occurred while loading data: {e}")
-            raise CustomException(e)
+            raise CustomException(e,sys)
 

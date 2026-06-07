@@ -1,149 +1,233 @@
-import pandas as pd
-import numpy as np
-from pyparsing import col
-from sklearn.preprocessing import LabelEncoder
-from src.logger import setup_logger
-from src.exceptions import CustomException
-import os
-from src.config.constant import featured_data_path, featured_data_json
-from src.data.data_cleaning import DataCleaning
-from datetime import datetime
+import sys
 import io
 import json
-from src.cloud.s3_storage import S3Storage
+from datetime import datetime
+
+import pandas as pd
+import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
+from src.logger import setup_logger
+from src.exceptions import CustomException
+from src.data.data_cleaning import DataCleaning
+from src.cloud.s3_storage import S3Storage
+
 logging = setup_logger()
+
 
 class FeatureEngineering:
     def __init__(self):
         self.cleaner = DataCleaning()
-        self.cleaned_data = self.cleaner.clean_data().clean_data()
+        self.cleaned_data = self.cleaner.clean_data()
 
     def create_features(self):
         try:
-            logging.info(f"Starting feature engineering on cleaned data with shape: {self.cleaned_data.shape}")
-            logging.info(f"Columns in cleaned data: {self.cleaned_data.columns.tolist()}")
+            df = self.cleaned_data.copy()
 
-            # Create RUL feature
-            self.cleaned_data['installation_date'] = pd.to_datetime(self.cleaned_data['installation_date'])
-            self.cleaned_data['timestamp'] = pd.to_datetime(self.cleaned_data['timestamp'])
-            self.cleaned_data['last_filter_change_date'] = pd.to_datetime(self.cleaned_data['last_filter_change_timestamp'])
+            logging.info(f"Starting feature engineering. Shape: {df.shape}")
 
-            # Machine age in days at time of reading
-            self.cleaned_data['machine_age_days'] = (
-                self.cleaned_data['timestamp'] - self.cleaned_data['installation_date']
+            # Ensure datetime columns
+            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+            df['installation_date'] = pd.to_datetime(df['installation_date'], errors='coerce')
+            df['last_filter_change_date'] = pd.to_datetime(df['last_filter_change_date'], errors='coerce')
+
+            # Machine age
+            df['machine_age_days'] = (
+                df['timestamp'] - df['installation_date']
             ).dt.days
 
-            # Days since last filter change
-            self.cleaned_data['days_since_filter_change'] = (
-                self.cleaned_data['timestamp'] - self.cleaned_data['last_filter_change_date']
+            # Days since filter change
+            df['days_since_filter_change'] = (
+                df['timestamp'] - df['last_filter_change_date']
             ).dt.days
 
-            # Vibration Magnitude for combined mechanical stress
-            self.cleaned_data['vibration_magnitude'] = np.sqrt(
-                self.cleaned_data['vibration_x_g']**2 + self.cleaned_data['vibration_y_g']**2
+            # Sensor columns
+            sensor_cols = [
+                'pressure_bar',
+                'temp_celsius',
+                'flow_lpm',
+                'vibration_x_g',
+                'vibration_y_g',
+                'pump_rpm'
+            ]
+
+            # Vibration magnitude
+            df['vibration_magnitude'] = np.sqrt(
+                df['vibration_x_g'] ** 2 + df['vibration_y_g'] ** 2
             )
 
-            # Hydraulic Power i.e pressure × flow
-            self.cleaned_data['hydraulic_power'] = (
-                self.cleaned_data['pressure_bar'] * self.cleaned_data['flow_lpm']
+            # Equipment/sensor interaction features
+            df['hydraulic_power'] = df['pressure_bar'] * df['flow_lpm']
+
+            df['flow_efficiency'] = (
+                df['flow_lpm'] / df['pump_rpm'].replace(0, np.nan)
+            ).fillna(0)
+
+            df['pressure_per_rpm'] = (
+                df['pressure_bar'] / df['pump_rpm'].replace(0, np.nan)
+            ).fillna(0)
+
+            df['thermal_stress_index'] = (
+                df['temp_celsius'] * df['vibration_magnitude']
             )
 
-            # Flow Efficiency i.e flow delivered per RPM
-            self.cleaned_data['flow_efficiency'] = (
-                self.cleaned_data['flow_lpm'] / self.cleaned_data['pump_rpm'].replace(0, np.nan)
+            df['vibration_flow_ratio'] = (
+                df['vibration_magnitude'] / df['flow_lpm'].replace(0, np.nan)
             ).fillna(0)
 
-            # Pressure per RPM for pressure generated per revolution
-            self.cleaned_data['pressure_per_rpm'] = (
-                self.cleaned_data['pressure_bar'] / self.cleaned_data['pump_rpm'].replace(0, np.nan)
+            df['pump_efficiency_index'] = (
+                (df['flow_lpm'] * df['pressure_bar']) /
+                df['pump_rpm'].replace(0, np.nan)
             ).fillna(0)
 
-            # Thermal Stress Index i.e heat × vibration combined stress
-            self.cleaned_data['thermal_stress_index'] = (
-                self.cleaned_data['temp_celsius'] * self.cleaned_data['vibration_magnitude']
-            )
-
-            # Vibration to Flow Ratio i.e cavitation risk indicator
-            self.cleaned_data['vibration_flow_ratio'] = (
-                self.cleaned_data['vibration_magnitude'] / self.cleaned_data['flow_lpm'].replace(0, np.nan)
+            df['pressure_temp_ratio'] = (
+                df['pressure_bar'] / df['temp_celsius'].replace(0, np.nan)
             ).fillna(0)
 
-            # Pump Efficiency Index for overall pump health
-            self.cleaned_data['pump_efficiency_index'] = (
-                (self.cleaned_data['flow_lpm'] * self.cleaned_data['pressure_bar']) / self.cleaned_data['pump_rpm'].replace(0, np.nan)
-            ).fillna(0)
-
-            # Pressure Temperature Ratio i.e the fluid/cooling health
-            self.cleaned_data['pressure_temp_ratio'] = (
-                self.cleaned_data['pressure_bar'] / self.cleaned_data['temp_celsius'].replace(0, np.nan)
-            ).fillna(0)
-
-            self.cleaned_data = self.cleaned_data.drop(columns=['installation_date', 'last_filter_change_date', 'maintenance_priority'])
-
-            sensor_cols = ['pressure_bar', 'temp_celsius', 'flow_lpm',
-               'vibration_x_g', 'vibration_y_g', 'pump_rpm']
-            
-            # Create delta features for sensor readings to capture trends
+            # Delta features
             for col in sensor_cols:
-                self.cleaned_data[f'{col}_delta'] = (
-                    self.cleaned_data.groupby('machine_id')[col].diff().fillna(0))
-            delta_cols = [f'{col}_delta' for col in sensor_cols]
-            logging.info(f"Delta features created: {delta_cols}")
-            logging.info(f"Total delta features : {len(delta_cols)}")
+                df[f'{col}_delta'] = (
+                    df.groupby('machine_id')[col]
+                    .diff()
+                    .fillna(0)
+                )
 
-            # Engineering lag features
+            delta_cols = [f'{col}_delta' for col in sensor_cols]
+
+            # Lag features
             lag_steps = [1, 3, 6]
 
             for col in sensor_cols:
                 for lag in lag_steps:
-                    self.cleaned_data[f'{col}_lag{lag}'] = (self.cleaned_data.groupby('machine_id')[col].shift(lag).fillna(method='bfill'))
+                    df[f'{col}_lag{lag}'] = (
+                        df.groupby('machine_id')[col]
+                        .shift(lag)
+                        .bfill()
+                    )
 
-            lag_cols = [f'{col}_lag{lag}' for col in sensor_cols for lag in lag_steps]
-
-            logging.info("Lag features created")
-            logging.info(f"Total lag features: {len(lag_cols)}")
-            for col in lag_cols:
-                logging.info(f"{col}")
-
-            #Creating rolling window features to capture short term trends and patterns
-            WINDOW = 15
-            for col in sensor_cols:
-                grouped = self.cleaned_data.groupby('machine_id')[col]
-
-            self.cleaned_data[f'{col}_roll_mean_15m'] = grouped.transform(lambda x: x.rolling(WINDOW, min_periods=1).mean())
-
-            rolling_cols = [f'{col}_{stat}_15m'
+            lag_cols = [
+                f'{col}_lag{lag}'
                 for col in sensor_cols
-                for stat in ['roll_mean', 'roll_std', 'roll_min', 'roll_max']]
+                for lag in lag_steps
+            ]
 
-            logging.info("Rolling window features created (window=15 mins)\n")
-            logging.info(f"Total rolling features: {len(rolling_cols)}\n")
-            for col in rolling_cols:
-                logging.info(f"{col}")
+            # Rolling features
+            window = 15
 
-            base_features = sensor_cols + ['machine_age_days', 'days_since_filter_change', 'thermal_stress_index', 
-            'vibration_flow_ratio', 'pump_efficiency_index', 'pressure_temp_ratio', 'pressure_per_rpm', 
-            'vibration_magnitude', 'hydraulic_power', 'flow_efficiency'] 
-            
+            for col in sensor_cols:
+                grouped = df.groupby('machine_id')[col]
+
+                df[f'{col}_roll_mean_15m'] = grouped.transform(
+                    lambda x: x.rolling(window, min_periods=1).mean()
+                )
+
+                df[f'{col}_roll_std_15m'] = grouped.transform(
+                    lambda x: x.rolling(window, min_periods=1).std()
+                ).fillna(0)
+
+                df[f'{col}_roll_min_15m'] = grouped.transform(
+                    lambda x: x.rolling(window, min_periods=1).min()
+                )
+
+                df[f'{col}_roll_max_15m'] = grouped.transform(
+                    lambda x: x.rolling(window, min_periods=1).max()
+                )
+
+            rolling_cols = [
+                f'{col}_{stat}_15m'
+                for col in sensor_cols
+                for stat in ['roll_mean', 'roll_std', 'roll_min', 'roll_max']
+            ]
+
+            # Encode categorical columns
+            if 'shift' in df.columns:
+                le_shift = LabelEncoder()
+                df['shift'] = le_shift.fit_transform(df['shift'].astype(str))
+
+            if 'fluid_type' in df.columns:
+                le_fluid = LabelEncoder()
+                df['fluid_type'] = le_fluid.fit_transform(df['fluid_type'].astype(str))
+
+            # Base features
+            base_features = sensor_cols + [
+                'machine_age_days',
+                'days_since_filter_change',
+                'thermal_stress_index',
+                'vibration_flow_ratio',
+                'pump_efficiency_index',
+                'pressure_temp_ratio',
+                'pressure_per_rpm',
+                'vibration_magnitude',
+                'hydraulic_power',
+                'flow_efficiency',
+                'shift',
+                'fluid_type'
+            ]
+
             final_features_rul = base_features + delta_cols + lag_cols + rolling_cols
-            logging.info(f"Total features engineered: {len(final_features_rul)}")
 
-            rul_dataset = self.cleaned_data[final_features_rul + ['machine_id', 'timestamp', 'rul_hours', 'shift', 'fluid_type']]
-            logging.info("RUL feature created successfully")
+            rul_dataset = df[
+                final_features_rul + ['machine_id', 'timestamp', 'rul_hours']
+            ].copy()
 
-            # #Label encoding of categorical features to perform correlation analysis and enable model training
-            # # shift
-            # le_shift = LabelEncoder()
-            # self.cleaned_data['shift'] = le_shift.fit_transform(self.cleaned_data['shift'])
+            # Drop redundant/leakage/unwanted columns
+            cols_to_drop = [
+                'thermal_stress_index',
+                'vibration_flow_ratio',
+                'pump_efficiency_index',
+                'pump_rpm_lag1',
+                'pump_rpm_lag3',
+                'pump_rpm_lag6',
+                'pump_rpm_roll_mean_15m',
+                'flow_lpm_lag1',
+                'flow_lpm_lag3',
+                'flow_lpm_lag6',
+                'flow_lpm_roll_mean_15m',
+                'vibration_x_g_roll_mean_15m',
+                'vibration_y_g_roll_mean_15m',
+                'flow_lpm',
+                'pressure_bar',
+                'vibration_x_g',
+                'vibration_y_g',
+                'is_anomaly',
+                'installation_date',
+                'last_filter_change_date',
+                'failure_mode_x',
+                'total_operating_hours',
+                'maintenance_priority',
+                'days_since_filter_change',
+                'is_sensor_dropout',
+                'machine_age_days'
+                'pressure_bar_roll_std_15m', 
+                'pressure_bar_roll_min_15m', 
+                'pressure_bar_roll_max_15m', 
+                'temp_celsius_roll_std_15m', 
+                'temp_celsius_roll_min_15m', 
+                'temp_celsius_roll_max_15m', 
+                'flow_lpm_roll_std_15m', 
+                'flow_lpm_roll_min_15m', 
+                'flow_lpm_roll_max_15m', 
+                'vibration_x_g_roll_std_15m', 
+                'vibration_x_g_roll_min_15m', 
+                'vibration_x_g_roll_max_15m', 
+                'vibration_y_g_roll_std_15m', 
+                'vibration_y_g_roll_min_15m', 
+                'vibration_y_g_roll_max_15m', 
+                'pump_rpm_roll_std_15m', ''
+                'pump_rpm_roll_min_15m', 
+                'pump_rpm_roll_max_15m',
+                'pressure_bar_roll_std_15m'
+            ]
 
-            # # fluid_type
-            # le_fluid = LabelEncoder()
-            # self.cleaned_data['fluid_type'] = le_fluid.fit_transform(self.cleaned_data['fluid_type'])
+            rul_dataset = rul_dataset.drop(columns=cols_to_drop, errors='ignore')
 
+            logging.info("Feature engineering completed successfully")
+            logging.info(f"RUL dataset shape: {rul_dataset.shape}")
+            logging.info(f"RUL dataset columns: {rul_dataset.columns.tolist()}")
+
+                      
             # storing of featured data in S3
-            bucket_name = 'bosch-predictive-maintenance'
+            bucket_name = 'group-one-featured-engineer'
             s3 = S3Storage(bucket_name)
 
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -151,20 +235,21 @@ class FeatureEngineering:
             csv_buffer = io.StringIO()
             rul_dataset.to_csv(csv_buffer, index=False)
 
-            s3.upload_bytes(csv_buffer.getvalue().encode(), featured_data_path)
+            s3.upload_bytes(data=csv_buffer.getvalue(), s3_key=f"features/rul_dataset_{timestamp}.csv", content_type='text/csv')
 
-            # Save featured data to CSV
-            os.makedirs(os.path.dirname(featured_data_path), exist_ok=True)
-            self.cleaned_data.to_csv(featured_data_path, index=False)
-            logging.info(f"Featured data saved to {featured_data_path}")
+            json_buffer = json.dumps({'RUL_DATASET': rul_dataset}, indent=2)
+            s3.upload_bytes(data=json_buffer, s3_key=f"features/rul_dataset_{timestamp}.json", content_type='application/json')
 
-            # Save featured data to JSON and upload to S3
-            featured_json_buffer = io.StringIO()
-            self.cleaned_data.to_json(featured_json_buffer, orient='records', date_format='iso')
-            self.s3_storage.upload_fileobj(io.BytesIO(featured_json_buffer.getvalue().encode()), featured_data_json)
-            logging.info(f"Featured data uploaded to S3 at {featured_data_json}")
-
+            return rul_dataset, final_features_rul
+        
         except Exception as e:
             logging.error(f"Error occurred during feature engineering: {e}")
-            raise CustomException(e)
-cleaner = DataCleaning()
+            raise CustomException(e, sys)   
+
+if __name__ == "__main__":
+    features = FeatureEngineering()
+    rul_dataset, final_features = features.create_features()
+
+    print(rul_dataset.head())
+    print(rul_dataset.shape)
+    
