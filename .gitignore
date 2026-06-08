@@ -181,3 +181,7 @@ cython_debug/
 .cursorindexingignore
 
 boschrexroth_env/
+.env
+logs/
+notebook/
+bosch_roxroth.pem

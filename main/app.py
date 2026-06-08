@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import pandas as pd
 import mlflow.sklearn
-
 from src.connections.mlflow_setup import setup_mlflow
 from src.cloud.s3_storage import S3Storage
 from src.config.constant import BUCKET_NAME

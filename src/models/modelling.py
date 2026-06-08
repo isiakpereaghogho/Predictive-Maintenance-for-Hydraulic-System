@@ -24,7 +24,7 @@ class ModellingPipeline:
 
     def run_feature_engineering(self):
         logging.info("Starting feature engineering")
-        FeatureEngineering().engineer_features()
+        FeatureEngineering().create_features()
         logging.info("Feature engineering complete. Data uploaded to S3")
 
     def load_data(self):
@@ -46,22 +46,22 @@ class ModellingPipeline:
 
         logging.info(f"Loaded data: {len(self.rul_data):,} rows")
 
-        def prepare_data(self):
-            self.rul_data = self.rul_data.sort_values("timestamp")
+    def prepare_data(self):
+        self.rul_data = self.rul_data.sort_values("timestamp")
 
-            split_time = self.rul_data["timestamp"].quantile(0.8)
+        split_time = self.rul_data["timestamp"].quantile(0.8)
 
-            train = self.rul_data[self.rul_data["timestamp"] <= split_time]
-            test = self.rul_data[self.rul_data["timestamp"] > split_time]
+        train = self.rul_data[self.rul_data["timestamp"] <= split_time]
+        test = self.rul_data[self.rul_data["timestamp"] > split_time]
 
-            train = train.dropna(subset=self.FINAL_FEATURES_RUL + ["rul_hours"])
-            test = test.dropna(subset=self.FINAL_FEATURES_RUL + ["rul_hours"])
+        train = train.dropna(subset=self.FINAL_FEATURES_RUL + ["rul_hours"])
+        test = test.dropna(subset=self.FINAL_FEATURES_RUL + ["rul_hours"])
 
-            logging.info(f"Train: {len(self.X_train):,} rows | Test: {len(self.X_test):,} rows")
+        logging.info(f"Train: {len(self.X_train):,} rows | Test: {len(self.X_test):,} rows")
 
-            def train_model(self):
-                logging.info("Training model")
-                self.model = GradientBoostingRegressor(
+        def train_model(self):
+            logging.info("Training model")
+            self.model = GradientBoostingRegressor(
                     n_estimators=100,
                     learning_rate=0.1,
                     max_depth=5,
@@ -69,51 +69,49 @@ class ModellingPipeline:
                     min_samples_leaf=5,
                     subsample=0.8,
                     random_state=42
-                )
-                self.mdoel.fit(self.X_train, self.y_train)
-                logging.info("Model training complete")
+            )
+            self.mdoel.fit(self.X_train, self.y_train)
+            logging.info("Model training complete")
+
+        def evaluate(self):
+            preds = self.model.predict(self.X_test)
+
+            rmse = np.sqrt(mean_squared_error(self.y_test, preds))
+            mae = mean_absolute_error(self.y_test, preds)
+            r2 = r2_score(self.y_test, preds)
+
+            logging.info("\nModel Performance:")
+            logging.info(f"RMSE: {rmse: .2f}")
+            logging.info(f"MAE:  {mae: 2f}")
+            logging.info(f"R2:  {r2: 3f}")
 
 
-            def evaluate(self):
-                preds = self.model.predict(self.X_test)
+            return rmse, mae, r2, self.model
 
-                rmse = np.sqrt(mean_squared_error(self.y_test, preds))
-                mae = mean_absolute_error(self.y_test, preds)
-                r2 = r2_score(self.y_test, preds)
+        def run(self):
+            self.run_feature_engineering()
+            self.load_data()
+            self.prepare_data()
+            self.train_model()
 
-                logging.info("\nModel Performance:")
-                logging.info(f"RMSE: {rmse: .2f}")
-                logging.info(f"MAE:  {mae: 2f}")
-                logging.info(f"R2:  {r2: 3f}")
+            rmse, mae, r2, self.model = self.evaluate()
 
-
-                return rmse, mae, r2, self.model
-
-            def run(self):
-                self.run_feature_engineering()
-                self.load_data()
-                self.prepare_data()
-                self.train_model()
-
-                rmse, mae, r2 self.model = self.evaluate()
-
-                # hand off to registry
-                registry = ModelRegistry()
-
-                registry.register(
+            # hand off to registry
+            registry = ModelRegistry()
+            registry.register(
                     model = self.model,
-                    model_name = "GradientBoosting_RUL",
+                    model_name = "gb_model",
                     params = {
-                        n_estimators=100,
-                        learning_rate=0.1,
-                        max_depth=5,
-                        min_samples_split=10,
-                        min_samples_leaf=5,
-                        subsample=0.8,
-                        random_state=42
-                    },
-                    metrics={"rmse": rmse, "mae": mae, "r2": r2},
-                    tags={"stage": "dev", "dataset": "hydraulic_system"},
-                )
+                        "n_estimators": 100,
+                        "learning_rate": 0.1,
+                        "max_depth": 5,
+                        "min_samples_split": 10,
+                        "min_samples_leaf": 5,
+                        "subsample": 0.8,
+                        "random_state": 42
+                        },
+                    metrics= {"rmse": rmse, "mae": mae, "r2": r2},
+                    tags= {"stage": "dev", "dataset": "hydraulic_system"}
+            )
 
             

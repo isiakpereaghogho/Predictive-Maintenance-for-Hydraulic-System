@@ -1,12 +1,12 @@
 import sys
 import io
+import os
 import json
 from datetime import datetime
-
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-
+from src.config.constant import BUCKET_NAME, featured_data, featured_data_json
 from src.logger import setup_logger
 from src.exceptions import CustomException
 from src.data.data_cleaning import DataCleaning
@@ -151,6 +151,7 @@ class FeatureEngineering:
             # Base features
             base_features = sensor_cols + [
                 'machine_age_days',
+                'day_of_week',
                 'days_since_filter_change',
                 'thermal_stress_index',
                 'vibration_flow_ratio',
@@ -165,10 +166,6 @@ class FeatureEngineering:
             ]
 
             final_features_rul = base_features + delta_cols + lag_cols + rolling_cols
-
-            rul_dataset = df[
-                final_features_rul + ['machine_id', 'timestamp', 'rul_hours']
-            ].copy()
 
             # Drop redundant/leakage/unwanted columns
             cols_to_drop = [
@@ -219,15 +216,20 @@ class FeatureEngineering:
                 'pressure_bar_roll_std_15m'
             ]
 
-            rul_dataset = rul_dataset.drop(columns=cols_to_drop, errors='ignore')
+            final_features_rul = [col for col in final_features_rul if col not in cols_to_drop]
+
+            rul_dataset = df[
+                final_features_rul + ['machine_id', 'timestamp', 'rul_hours']
+            ].copy()
 
             logging.info("Feature engineering completed successfully")
+            logging.info(f"final_features_RUL: {len(final_features_rul)}")
             logging.info(f"RUL dataset shape: {rul_dataset.shape}")
             logging.info(f"RUL dataset columns: {rul_dataset.columns.tolist()}")
 
                       
             # storing of featured data in S3
-            bucket_name = 'group-one-featured-engineer'
+            bucket_name = BUCKET_NAME
             s3 = S3Storage(bucket_name)
 
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -237,8 +239,23 @@ class FeatureEngineering:
 
             s3.upload_bytes(data=csv_buffer.getvalue(), s3_key=f"features/rul_dataset_{timestamp}.csv", content_type='text/csv')
 
-            json_buffer = json.dumps({'RUL_DATASET': rul_dataset}, indent=2)
-            s3.upload_bytes(data=json_buffer, s3_key=f"features/rul_dataset_{timestamp}.json", content_type='application/json')
+            json_buffer = json.dumps({
+                'FINAL_FEATURES_RUL': final_features_rul,
+                'SENSOR_COLS': sensor_cols}, indent=2)
+            s3.upload_bytes(data=json_buffer, s3_key=f"features/features_metadata{timestamp}.json", content_type='application/json')
+
+            # Create folder if it does not exist
+            os.makedirs(os.path.dirname(featured_data), exist_ok=True)
+
+            # Save featured dataset
+            rul_dataset.to_csv(featured_data, index=False)
+
+            # Save feature columns
+            with open(featured_data_json, "w") as f:
+                json.dump(final_features_rul, f, indent=4)
+
+            logging.info(f"Featured dataset saved to: {featured_data}")
+            logging.info(f"Feature columns saved to: {featured_data_json}")
 
             return rul_dataset, final_features_rul
         
@@ -248,8 +265,11 @@ class FeatureEngineering:
 
 if __name__ == "__main__":
     features = FeatureEngineering()
-    rul_dataset, final_features = features.create_features()
+    rul_dataset, final_features_rul = features.create_features()
 
     print(rul_dataset.head())
     print(rul_dataset.shape)
+    print(len(final_features_rul))
+    print(final_features_rul)
+    
     

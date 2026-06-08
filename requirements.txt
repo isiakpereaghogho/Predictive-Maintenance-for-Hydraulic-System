@@ -11,3 +11,5 @@ pytest
 requests
 from-root
 boto3
+dagshub
+-e .
