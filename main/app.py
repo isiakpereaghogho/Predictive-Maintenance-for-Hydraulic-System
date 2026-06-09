@@ -2,13 +2,15 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import pandas as pd
 import mlflow.sklearn
-from src.connections.mlflow_setup import setup_mlflow
+from src.connections.mlflow_setup import setup_mlflow, load_best_model_by_r2
 from src.cloud.s3_storage import S3Storage
 from src.config.constant import BUCKET_NAME
 from src.pipeline.prediction import predict_rul
 from src.pipeline.training import TrainingPipeline
 from src.logger import setup_logger
 from src.exceptions import CustomException
+from mlflow.tracking import MlflowClient
+
 
 
 logging = setup_logger()
@@ -17,37 +19,52 @@ app = FastAPI(title="RUL Prediction API")
 
 setup_mlflow()
 
-MODEL_NAME = "GradientBoosting_RUL"
-MODEL_STAGE = "latest"
-
 s3 = S3Storage(BUCKET_NAME)
+
+model_info = {}
 
 
 def load_artifacts():
-    """Load model, dataset, and feature columns """
     try:
-        model = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}/{MODEL_STAGE}")
 
-        json_key = s3.get_latest_file(prefix="features/", keyword="features_metadata")
+        client = MlflowClient()
+
+        versions = client.search_model_versions("name='gb_model'")
+
+        latest_version = max(int(v.version) for v in versions)
+
+        model, model_info = load_best_model_by_r2("gb_model")
+        
+        logging.info(f"Loaded gb_model version {latest_version}")
+
+        json_key = s3.get_latest_file(prefix="features/",keyword="features_metadata")
+
         feature_cols = s3.load_json(json_key)["FINAL_FEATURES_RUL"]
 
-        csv_key = s3.get_latest_file(prefix="features/", keyword="rul_dataset")
+        csv_key = s3.get_latest_file(prefix="features/",keyword="rul_dataset")
+
         dataset = s3.load_csv(csv_key)
         dataset["timestamp"] = pd.to_datetime(dataset["timestamp"])
-        logging.info(f"Artifacts loaded: model '{MODEL_NAME}' and dataset with {len(dataset):,} rows")
 
-        return model, dataset, feature_cols
+        return model, dataset, feature_cols,  model_info
+
     except Exception as e:
-        logging.error(f"Error occurred while loading artifacts: {e}")
+        logging.error(f"Error loading artifacts: {e}")
 
         raise HTTPException(
-        status_code=500,
-        detail=f"Failed to load artifacts: {e}"
-    )
+            status_code=500,
+            detail=f"Failed to load artifacts: {e}"
+        )
 
 
 # load at startup
-model, dataset, feature_cols = load_artifacts()
+@app.on_event("startup")
+def startup_event():
+    global model, dataset, feature_cols
+
+    model, dataset, feature_cols,  model_info = load_artifacts()
+
+    logging.info("Artifacts loaded successfully")
 
 # REQUEST SCHEMA
 class SensorInput(BaseModel):
@@ -64,6 +81,14 @@ class SensorInput(BaseModel):
 def home():
     return {"message": "RUL Prediction API is running"}
 
+@app.get("/model-info")
+def get_model_info():
+    return {
+        "model_name": model_info.get("model_name"),
+        "version": model_info.get("best_version"),
+        "r2": model_info.get("best_r2"),
+        "run_id": model_info.get("best_run_id")
+    }
 
 # training route
 @app.post("/train")
@@ -114,5 +139,9 @@ def predict(data: SensorInput):
         raise HTTPException(status_code=400, detail=str(e))
     
     except Exception as e:
-        # Unexpected errors
-        raise CustomException(f"Prediction failed: {e}")
+        logging.error(f"Prediction failed: {e}")
+
+    raise HTTPException(
+        status_code=500,
+        detail=f"Prediction failed: {e}"
+    )

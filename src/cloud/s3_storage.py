@@ -9,45 +9,52 @@ logging = setup_logger()
 class S3Storage:
     def __init__(self, bucket_name):
         self.bucket_name = bucket_name
-        self.s3 = boto3.client('s3')
+        self.s3_client = boto3.client('s3')
 
     # function to upload a file to S3 as a CSV file
     def upload_bytes(self, data, s3_key, content_type):
         try:
-            self.s3.put_object(Bucket=self.bucket_name, Key=s3_key, Body=data, ContentType=content_type)
+            self.s3_client.put_object(Bucket=self.bucket_name, Key=s3_key, Body=data, ContentType=content_type)
 
             logging.info(f"Data uploaded to S3 at {s3_key}")
         except Exception as e:
             logging.error(f"Error uploading the file to S3: {e}")
             raise
 
-    def load_csv(self, csv_key):
-        try:
-            obj = self.s3.get_object(Bucket=self.bucket_name, Key=csv_key)
-            data = pd.read_csv(io.BytesIO(obj['Body'].read()), parse_dates=['timestamp'])
+   
 
-            logging.info(f"loaded csv from S3: {csv_key}, shape: {data.shape}")
-        
-        
+    def load_csv(self, s3_key):
+        try:
+            obj = self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
+
+            df = pd.read_csv(io.BytesIO(obj["Body"].read()))
+
+            logging.info(f"loaded csv from S3: {s3_key}, shape: {df.shape}")
+
+            return df
+
         except Exception as e:
-            logging.error(f"Error downloading DataFrame from S3: {e}")
+            logging.error(f"Error loading CSV from S3: {e}")
             raise
 
-    def load_json(self, json_key):
+   
+    def load_json(self, s3_key):
         try:
-            obj = self.s3.get_object(Bucket=self.bucket_name, Key=json_key)
+            obj = self.s3_client.get_object(Bucket=self.bucket_name,Key=s3_key)
 
-            features = json.loads(obj['Body'].read().decode('utf-8'))
-            logging.info(f"JSON data downloaded from S3 at {json_key}")
-            return features
-        
+            data = json.loads(obj["Body"].read().decode("utf-8"))
+
+            logging.info(f"JSON data downloaded from S3 at {s3_key}")
+
+            return data
+
         except Exception as e:
             logging.error(f"Error loading JSON from S3: {e}")
             raise
 
     def get_latest_file(self, prefix, keyword): 
         try:
-            response = self.s3.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix)
+            response = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix)
 
             if 'Contents' not in response:
                 raise ValueError("No files found in S3 with prefix")
@@ -83,4 +90,4 @@ class S3Storage:
         except Exception as e:
             logging.error(f"Error uploading model file to S3: {e}")
             raise
-#       
+       

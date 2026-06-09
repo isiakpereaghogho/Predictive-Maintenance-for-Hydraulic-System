@@ -379,6 +379,38 @@ def make_rul_timeline(rul_value, max_rul=336):
     )
     return fig
 
+def call_model_info_api():
+    try:
+        response = requests.get(f"{API_URL}/model-info", timeout=10)
+        if response.status_code == 200:
+            return response.json(), None
+        return None, f"API Error {response.status_code}: {response.text}"
+    except Exception as e:
+        return None, str(e)
+
+
+# ── Current Production Model Info ─────────────────────────
+model_info, model_error = call_model_info_api()
+
+current_model_name = model_info.get("model_name", "N/A") if model_info else "N/A"
+current_version = model_info.get("version", "N/A") if model_info else "N/A"
+current_r2 = float(model_info.get("r2", 0) or 0) if model_info else 0.0
+current_rmse = float(model_info.get("rmse", 0) or 0) if model_info else 0.0
+current_mae = float(model_info.get("mae", 0) or 0) if model_info else 0.0
+
+# Fallback values if API/model-info is unavailable
+if current_r2 == 0:
+    current_r2 = 0.925
+if current_rmse == 0:
+    current_rmse = 15.61
+if current_mae == 0:
+    current_mae = 12.20
+
+# Display values
+current_r2_percent = current_r2 * 100
+current_rmse_display = f"{current_rmse:.2f}"
+current_mae_display = f"{current_mae:.2f}"
+current_r2_display = f"{current_r2:.4f}"
 
 # ══════════════════════════════════════════════════════════
 # SIDEBAR
@@ -387,7 +419,7 @@ def make_rul_timeline(rul_value, max_rul=336):
 with st.sidebar:
     st.markdown("""
     <div style='padding: 16px 0 24px 0;'>
-        <div class='logo-text'>⚙ HYDRA<span style='color:#ff6b35'>SYS</span></div>
+        <div class='logo-text'>⚙ BOSCH Rexroth AG HYDRAULIC<span style='color:#ff6b35'>SYSTEM</span></div>
         <div class='logo-sub'>Predictive Maintenance</div>
     </div>
     <div class='cyber-divider'></div>
@@ -430,15 +462,15 @@ with st.sidebar:
 
     selected_machine = st.selectbox(
         label="",
-        options=[f"HPU_0{i}" for i in range(1, 10)],
+        options=[f"HPU_0{i}" for i in range(1, 10)] + ["HPU_10"],
         label_visibility="collapsed"
     )
 
     st.markdown("<div class='cyber-divider'></div>", unsafe_allow_html=True)
-    st.markdown("""
+    st.markdown(f"""
     <div style='font-family:Share Tech Mono;font-size:0.6rem;
     color:#3a4255;letter-spacing:1px;margin-top:auto;'>
-    v1.0.0 · GB Model · R²=0.9365
+    v1.0.0 · {current_model_name} v{current_version} · R²={current_r2_display}
     </div>
     """, unsafe_allow_html=True)
 
@@ -474,18 +506,18 @@ if "🏠" in page:
         </div>""", unsafe_allow_html=True)
 
     with c2:
-        st.markdown("""
+        st.markdown(f"""
         <div class='metric-card'>
             <div class='metric-label'>Model Accuracy</div>
-            <div class='metric-value'>93.6<span style='font-size:1.2rem'>%</span></div>
+            <div class='metric-value'>{current_r2_percent:.1f}<span style='font-size:1.2rem'>%</span></div>
             <div class='metric-unit'>Test R² Score</div>
         </div>""", unsafe_allow_html=True)
 
     with c3:
-        st.markdown("""
+        st.markdown(f"""
         <div class='metric-card'>
             <div class='metric-label'>Prediction Error</div>
-            <div class='metric-value'>14.3</div>
+            <div class='metric-value'>{current_rmse:.2f}</div>
             <div class='metric-unit'>RMSE in Hours</div>
         </div>""", unsafe_allow_html=True)
 
@@ -505,13 +537,15 @@ if "🏠" in page:
     with col_left:
         st.markdown("<div class='section-header'>Best Model — Gradient Boosting</div>",
                     unsafe_allow_html=True)
-        st.markdown("""
+        st.markdown(f"""
         <div class='metric-card'>
             <table class='styled-table'>
-                <tr><th>Metric</th><th>Train</th><th>Test</th><th>Gap</th></tr>
-                <tr><td>RMSE</td><td>17.04</td><td style='color:#00ff88'>14.32</td><td>2.71</td></tr>
-                <tr><td>MAE</td><td>10.54</td><td style='color:#00ff88'>11.16</td><td>0.62</td></tr>
-                <tr><td>R²</td><td>0.9611</td><td style='color:#00ff88'>0.9365</td><td>0.0247</td></tr>
+                <tr><th>Metric</th><th>Production Model</th></tr>
+                <tr><td>Model</td><td style='color:#00ff88'>{current_model_name}</td></tr>
+                <tr><td>Version</td><td style='color:#00ff88'>{current_version}</td></tr>
+                <tr><td>RMSE</td><td style='color:#00ff88'>{current_rmse_display}</td></tr>
+                <tr><td>MAE</td><td style='color:#00ff88'>{current_mae_display}</td></tr>
+                <tr><td>R²</td><td style='color:#00ff88'>{current_r2_display}</td></tr>
             </table>
         </div>
         """, unsafe_allow_html=True)
@@ -590,9 +624,9 @@ elif "🔮" in page:
         with st.container():
             machine_id = st.selectbox(
                 "Machine ID",
-                options=[f"HPU_0{i}" for i in range(1, 10)],
+                options=[f"HPU_0{i}" for i in range(1, 10)] + ["HPU_10"],
                 index=[f"HPU_0{i}" for i in range(1, 10)].index(selected_machine)
-            )
+                )
 
             st.markdown("<div style='margin:8px 0;'></div>", unsafe_allow_html=True)
             st.markdown("""
@@ -687,7 +721,7 @@ elif "🔮" in page:
                 </div>""", unsafe_allow_html=True)
 
             else:
-                rul = result.get("predicted_rul", 0)
+                rul = result.get("rul_hours", 0)
                 status, badge_class, alert_class = get_rul_status(rul)
 
                 st.markdown(f"""
@@ -703,7 +737,7 @@ elif "🔮" in page:
                     </div>
                     <div style='margin-top:8px;font-size:0.75rem;color:#3a4255;
                     font-family:Share Tech Mono;'>
-                    ≈ {rul/24:.1f} days · ±14.32 hrs margin
+                    ≈ {rul/24:.1f} days · ±{current_rmse:.2f} hrs RMSE
                     </div>
                 </div>""", unsafe_allow_html=True)
 
@@ -783,8 +817,8 @@ elif "📊" in page:
                 unsafe_allow_html=True)
 
     models      = ['Ridge', 'Random Forest', 'XGBoost', 'Gradient Boosting']
-    test_r2     = [0.6482, 0.8942, 0.9329, 0.9365]
-    test_rmse   = [33.71,  18.49,  14.72,  14.32]
+    test_r2     = [0.6482, 0.8942, 0.9329, current_r2]
+    test_rmse   = [33.71,  18.49,  14.72,  current_rmse]
     gaps        = [0.1980, 0.1294, 0.0292, 0.0247]
     colors      = ['#3a4255', '#8892a4', '#00d4ff', '#00ff88']
 
@@ -984,7 +1018,7 @@ elif "ℹ️" in page:
             The pipeline ingests pressure, temperature, flow, vibration, and RPM
             sensor readings, engineers domain-specific features, and applies a
             <span style='color:#00d4ff;'>Gradient Boosting Regressor</span>
-            to predict how many hours remain before maintenance is required.<br><br>
+            to predict how many hours remain before maintenance is required. Project designed by Amdari Group 1 (March Cohort)<br><br>
             Experiment tracking is handled via
             <span style='color:#ff6b35;'>MLflow + DagsHub</span>,
             model artifacts are stored in
@@ -1031,3 +1065,4 @@ elif "ℹ️" in page:
                 <div class='metric-value' style='font-size:1.6rem;'>{val}</div>
                 <div class='metric-label' style='margin-top:8px;'>{label}</div>
             </div>""", unsafe_allow_html=True)
+

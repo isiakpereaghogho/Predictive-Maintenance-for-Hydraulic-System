@@ -3,20 +3,21 @@ from src.logger import setup_logger
 
 logging = setup_logger()
 
+
 class TrainingPipeline:
     def __init__(self):
         self.modeling_pipeline = ModellingPipeline()
 
     def train(self):
-        logging.info('starting training pipeline...')
+        logging.info("Starting training pipeline...")
 
         self.modeling_pipeline.run()
 
-        logging.info('Training pipeline completed successfully')
+        logging.info("Training pipeline completed successfully")
 
-        if __name__ == '__main__':
-            pipeline = TrainingPipeline()
-            pipeline.train()
 
+if __name__ == "__main__":
+    pipeline = TrainingPipeline()
+    pipeline.train()
 
     

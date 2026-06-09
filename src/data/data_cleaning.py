@@ -36,6 +36,9 @@ class DataCleaning:
 
             #Downsizing the dataset by keeping only rows whereanomalies equal to 1
             merged_df = merged_df[merged_df['is_anomaly'] == 1].copy()
+
+            merged_df = merged_df.sort_values(['machine_id', 'timestamp']).reset_index(drop=True)
+
             #Dropping columns with 100% missing values
             drop_cols = ['failure_event_id','failure_timestamp','failure_mode_y','degradation_start_timestamp','repair_cost_usd','downtime_hours']
 
@@ -53,6 +56,12 @@ class DataCleaning:
 
             return merged_df
         
+            # os.makedirs(CLEANED_DATA_DIR, exist_ok=True)
+            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # cleaned_path = os.path.join(CLEANED_DATA_DIR,f"cleaned_data_{timestamp}.csv")
+            # merged_df.to_csv(cleaned_path, index=False)
+            # logging.info(f"Cleaned data saved to {cleaned_path}")
+
         except Exception as e:
             logging.error(f"Error occurred during data cleaning: {e}")
             raise CustomException(e, sys)

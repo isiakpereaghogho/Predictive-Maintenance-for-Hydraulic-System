@@ -1,7 +1,6 @@
 [
     "temp_celsius",
     "pump_rpm",
-    "machine_age_days",
     "pressure_temp_ratio",
     "pressure_per_rpm",
     "vibration_magnitude",
@@ -9,6 +8,7 @@
     "flow_efficiency",
     "shift",
     "fluid_type",
+    "day_of_week",
     "pressure_bar_delta",
     "temp_celsius_delta",
     "flow_lpm_delta",

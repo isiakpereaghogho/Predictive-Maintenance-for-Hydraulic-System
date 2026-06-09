@@ -151,7 +151,6 @@ class FeatureEngineering:
             # Base features
             base_features = sensor_cols + [
                 'machine_age_days',
-                'day_of_week',
                 'days_since_filter_change',
                 'thermal_stress_index',
                 'vibration_flow_ratio',
@@ -162,7 +161,8 @@ class FeatureEngineering:
                 'hydraulic_power',
                 'flow_efficiency',
                 'shift',
-                'fluid_type'
+                'fluid_type',
+                'day_of_week'
             ]
 
             final_features_rul = base_features + delta_cols + lag_cols + rolling_cols
@@ -194,7 +194,7 @@ class FeatureEngineering:
                 'maintenance_priority',
                 'days_since_filter_change',
                 'is_sensor_dropout',
-                'machine_age_days'
+                'machine_age_days',
                 'pressure_bar_roll_std_15m', 
                 'pressure_bar_roll_min_15m', 
                 'pressure_bar_roll_max_15m', 

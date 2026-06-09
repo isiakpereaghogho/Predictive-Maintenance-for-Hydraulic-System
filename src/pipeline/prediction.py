@@ -57,17 +57,17 @@ def predict_rul(
         if sensor_input['pump_rpm'] != 0 else 0
     )
 
-    new_row['vibration_flow_ratio'] = (
-        new_row['vibration_magnitude'] /
-        sensor_input['flow_lpm']
-        if sensor_input['flow_lpm'] != 0 else 0
-    )
+    # new_row['vibration_flow_ratio'] = (
+    #     new_row['vibration_magnitude'] /
+    #     sensor_input['flow_lpm']
+    #     if sensor_input['flow_lpm'] != 0 else 0
+    # )
 
-    new_row['pump_efficiency_index'] = (
-        (sensor_input['flow_lpm'] * sensor_input['pressure_bar']) /
-        sensor_input['pump_rpm']
-        if sensor_input['pump_rpm'] != 0 else 0
-    )
+    # new_row['pump_efficiency_index'] = (
+    #     (sensor_input['flow_lpm'] * sensor_input['pressure_bar']) /
+    #     sensor_input['pump_rpm']
+    #     if sensor_input['pump_rpm'] != 0 else 0
+    # )
 
     new_row['pressure_temp_ratio'] = (
         sensor_input['pressure_bar'] /
@@ -75,11 +75,20 @@ def predict_rul(
         if sensor_input['temp_celsius'] != 0 else 0
     )
 
-    new_row['machine_age_days'] = latest.get('machine_age_days', 0)
-    new_row['days_since_filter_change'] = latest.get(
-        'days_since_filter_change',
-        0
-    )
+    # new_row['machine_age_days'] = latest.get('machine_age_days', 0)
+    # Create day_of_week because model was trained with it
+    new_row["day_of_week"] = pd.Timestamp.now().dayofweek
+    
+    new_row["day_of_week"] = latest.get('day_of_week', 0)
+
+    new_row["shift"] = latest.get('shift', 0)
+
+    new_row["fluid_type"] = latest.get('fluid_type', 0)
+
+    # new_row['days_since_filter_change'] = latest.get(
+    #     'days_since_filter_change',
+    #     0
+    # )
 
     history = machine_df.tail(15)
 
@@ -136,11 +145,13 @@ def predict_rul(
 
     feature_row = combined.iloc[[-1]].copy()
 
-    for col in feature_cols:
+    expected_features = list(model.feature_names_in_)
+
+    for col in expected_features:
         if col not in feature_row.columns:
             feature_row[col] = 0
 
-    feature_row = feature_row[feature_cols].fillna(0)
+    feature_row = feature_row[expected_features].fillna(0)
 
     rul_hours = max(0.0, model.predict(feature_row)[0])
     rul_days = rul_hours / 24

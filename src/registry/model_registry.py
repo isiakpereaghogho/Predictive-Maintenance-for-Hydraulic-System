@@ -19,17 +19,13 @@ class ModelRegistry:
     def __init__(self):
         self.bucket_name = BUCKET_NAME
         setup_mlflow()
-        self._upload_to_s3 = S3Storage(bucket_name=self.bucket_name)._upload_to_s3
+        self.s3 = S3Storage(bucket_name=self.bucket_name)
         
     def register(self, model, model_name: str, params: dict, metrics: dict, tags: dict = None) -> dict:
         tags = tags or {}
 
         with mlflow.start_run(tags={"model_name": model_name, **tags}) as run:
             run_id = run.info.run_id
-
-            # # Log the hyperparameters
-            # mlflow.log_params(params)
-            # logging.info(f"Params logged: {params}")
 
             # Log metrics
             mlflow.log_metrics({
@@ -53,7 +49,7 @@ class ModelRegistry:
             with tempfile.TemporaryDirectory() as tmpdir:
                 local_path = os.path.join(tmpdir, f"{model_name}.joblib")
                 joblib.dump(model, local_path) 
-                s3_uri = self._upload_to_s3(local_path, model_name, run_id) 
+                s3_uri = self.s3.upload_to_s3(local_path, model_name, run_id) 
 
         summary = {
             "run_id": run_id,
