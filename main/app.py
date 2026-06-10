@@ -84,7 +84,7 @@ def home():
 @app.get("/model-info")
 def get_model_info():
     return {
-        "model_name": model_info.get("model_name"),
+        "model_name": model_info.get("MODEL_NAME"),
         "version": model_info.get("best_version"),
         "r2": model_info.get("best_r2"),
         "run_id": model_info.get("best_run_id")

@@ -8,8 +8,7 @@ from datetime import datetime
 
 # ── Page Config ───────────────────────────────────────────
 st.set_page_config(
-    page_title='Hydraulic System Predictive Maintenance',
-    page_icon='🏭',
+    page_title='Bosch Hydraulic System Predictive Maintenance Dashboard',
     layout='wide',
     initial_sidebar_state='expanded'
 )
@@ -255,7 +254,9 @@ st.markdown("""
     }
 
     /* ── Hide Streamlit Defaults ── */
-    #MainMenu, footer, header { visibility: hidden; }
+    #MainMenu, footer { 
+    visibility: hidden; 
+}
     .block-container { padding-top: 1.5rem !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -392,8 +393,10 @@ def call_model_info_api():
 # ── Current Production Model Info ─────────────────────────
 model_info, model_error = call_model_info_api()
 
-current_model_name = model_info.get("model_name", "N/A") if model_info else "N/A"
-current_version = model_info.get("version", "N/A") if model_info else "N/A"
+# current_model_name = model_info.get("model_name", "N/A") if model_info else "N/A"
+# current_version = model_info.get("version", "N/A") if model_info else "N/A"
+current_model_name = "gb_model"
+current_version = 7
 current_r2 = float(model_info.get("r2", 0) or 0) if model_info else 0.0
 current_rmse = float(model_info.get("rmse", 0) or 0) if model_info else 0.0
 current_mae = float(model_info.get("mae", 0) or 0) if model_info else 0.0
@@ -417,9 +420,10 @@ current_r2_display = f"{current_r2:.4f}"
 # ══════════════════════════════════════════════════════════
 
 with st.sidebar:
+    #st.sidebar.success("Sidebar is working")
     st.markdown("""
     <div style='padding: 16px 0 24px 0;'>
-        <div class='logo-text'>⚙ BOSCH Rexroth AG HYDRAULIC<span style='color:#ff6b35'>SYSTEM</span></div>
+        <div class='logo-text'>⚙ BOSCH REXROTH AG HYDRAULIC<span style='color:#ff6b35'>SYSTEM</span></div>
         <div class='logo-sub'>Predictive Maintenance</div>
     </div>
     <div class='cyber-divider'></div>
@@ -445,12 +449,11 @@ with st.sidebar:
     <div style='font-family:Share Tech Mono;font-size:0.65rem;
     color:#8892a4;letter-spacing:3px;margin-bottom:12px;'>NAVIGATION</div>
     """, unsafe_allow_html=True)
-
-    page = st.radio(
-        label="",
-        options=["🏠  Home", "🔮  RUL Prediction", "📊  Dashboard", "ℹ️  About"],
-        label_visibility="collapsed"
-    )
+    with st.sidebar:
+        page = st.radio(
+            "Navigation",
+            ["Home", "RUL Prediction", "Dashboard", "About"]
+        )
 
     st.markdown("<div class='cyber-divider'></div>", unsafe_allow_html=True)
 
@@ -461,9 +464,8 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     selected_machine = st.selectbox(
-        label="",
-        options=[f"HPU_0{i}" for i in range(1, 10)] + ["HPU_10"],
-        label_visibility="collapsed"
+        "Machine Select",
+        [f"HPU_0{i}" for i in range(1, 10)] + ["HPU_10"]
     )
 
     st.markdown("<div class='cyber-divider'></div>", unsafe_allow_html=True)
@@ -479,7 +481,7 @@ with st.sidebar:
 # PAGE: HOME
 # ══════════════════════════════════════════════════════════
 
-if "🏠" in page:
+if page == "Home":
 
     st.markdown("""
     <h1 style='font-size:2.2rem;margin-bottom:4px;'>
@@ -517,8 +519,8 @@ if "🏠" in page:
         st.markdown(f"""
         <div class='metric-card'>
             <div class='metric-label'>Prediction Error</div>
-            <div class='metric-value'>{current_rmse:.2f}</div>
-            <div class='metric-unit'>RMSE in Hours</div>
+            <div class='metric-value'>{current_mae:.2f}</div>
+            <div class='metric-unit'>MAE in Hours</div>
         </div>""", unsafe_allow_html=True)
 
     with c4:
@@ -563,7 +565,7 @@ if "🏠" in page:
             <span style='color:#e8eaf0;'> Filter → is_anomaly = 1</span><br>
             <span style='color:#00d4ff;'>03</span>
             <span style='color:#8892a4;'> ──</span>
-            <span style='color:#e8eaf0;'> Feature Engineering (36 features)</span><br>
+            <span style='color:#e8eaf0;'> Feature Engineering (30 features)</span><br>
             <span style='color:#00d4ff;'>04</span>
             <span style='color:#8892a4;'> ──</span>
             <span style='color:#e8eaf0;'> Chronological 80/20 Split</span><br>
@@ -587,8 +589,8 @@ if "🏠" in page:
         ("Sensor Signals", "2", "temp_celsius, pump_rpm"),
         ("Delta Features", "6", "Rate of change per sensor"),
         ("Lag Features", "12", "Lags at 1, 3, 6 minutes"),
-        ("Rolling Stats", "8", "15-min mean & std"),
-        ("Interaction", "5", "vibration_magnitude, hydraulic_power..."),
+        ("Rolling Stats", "2", "15-min mean & std"),
+        ("Interaction", "8", "vibration_magnitude, hydraulic_power..."),
     ]
     for col, (name, count, desc) in zip([fc1, fc2, fc3, fc4, fc5], feature_groups):
         with col:
@@ -604,7 +606,7 @@ if "🏠" in page:
 # PAGE: RUL PREDICTION
 # ══════════════════════════════════════════════════════════
 
-elif "🔮" in page:
+elif page == "RUL Prediction":
 
     st.markdown("""
     <h1 style='font-size:2rem;margin-bottom:4px;'>
@@ -690,7 +692,7 @@ elif "🔮" in page:
             st.markdown("<div style='margin:16px 0;'></div>", unsafe_allow_html=True)
 
             predict_btn = st.button(
-                "⚡  PREDICT REMAINING USEFUL LIFE",
+                "  PREDICT REMAINING USEFUL LIFE",
                 use_container_width=True
             )
 
@@ -737,7 +739,7 @@ elif "🔮" in page:
                     </div>
                     <div style='margin-top:8px;font-size:0.75rem;color:#3a4255;
                     font-family:Share Tech Mono;'>
-                    ≈ {rul/24:.1f} days · ±{current_rmse:.2f} hrs RMSE
+                    ≈ {rul/24:.1f} days · ±{current_mae:.2f} hrs MAE
                     </div>
                 </div>""", unsafe_allow_html=True)
 
@@ -801,7 +803,7 @@ elif "🔮" in page:
 # PAGE: DASHBOARD
 # ══════════════════════════════════════════════════════════
 
-elif "📊" in page:
+elif page == "Dashboard":
 
     st.markdown("""
     <h1 style='font-size:2rem;margin-bottom:4px;'>
@@ -817,8 +819,8 @@ elif "📊" in page:
                 unsafe_allow_html=True)
 
     models      = ['Ridge', 'Random Forest', 'XGBoost', 'Gradient Boosting']
-    test_r2     = [0.6482, 0.8942, 0.9329, current_r2]
-    test_rmse   = [33.71,  18.49,  14.72,  current_rmse]
+    test_r2     = [0.6482, 0.8942, 0.9329, 0.9365]
+    test_mae   = [27.08,  13.52,  11.15,  11.16]
     gaps        = [0.1980, 0.1294, 0.0292, 0.0247]
     colors      = ['#3a4255', '#8892a4', '#00d4ff', '#00ff88']
 
@@ -852,16 +854,16 @@ elif "📊" in page:
                         config={'displayModeBar': False})
 
     with mc2:
-        fig_rmse = go.Figure()
-        fig_rmse.add_trace(go.Bar(
-            x=models, y=test_rmse,
+        fig_mae = go.Figure()
+        fig_mae.add_trace(go.Bar(
+            x=models, y=test_mae,
             marker=dict(color=colors, line=dict(width=0)),
-            text=[f"{v:.2f}h" for v in test_rmse],
+            text=[f"{v:.2f}h" for v in test_mae],
             textposition='outside',
             textfont=dict(family='Share Tech Mono', size=10, color='#e8eaf0')
         ))
-        fig_rmse.update_layout(
-            title=dict(text='Test RMSE (hours)', font=dict(
+        fig_mae.update_layout(
+            title=dict(text='Test MAE (hours)', font=dict(
                 color='#8892a4', size=11, family='Share Tech Mono')),
             height=280,
             paper_bgcolor='rgba(0,0,0,0)',
@@ -874,7 +876,7 @@ elif "📊" in page:
             margin=dict(l=0, r=0, t=40, b=0),
             showlegend=False
         )
-        st.plotly_chart(fig_rmse, use_container_width=True,
+        st.plotly_chart(fig_mae, use_container_width=True,
                         config={'displayModeBar': False})
 
     # ── Feature Importance ────────────────────────────────
@@ -917,48 +919,81 @@ elif "📊" in page:
     st.plotly_chart(fig_fi, use_container_width=True,
                     config={'displayModeBar': False})
 
-    # ── RUL Distribution ──────────────────────────────────
-    st.markdown("<div class='section-header'>Simulated RUL Distribution</div>",
-                unsafe_allow_html=True)
+ 
+   # ── RUL Distribution ──────────────────────────────────
+    st.markdown(
+    "<div class='section-header'>Simulated RUL Distribution</div>",
+    unsafe_allow_html=True)
 
+    # Generate simulated RUL values
     np.random.seed(42)
-    rul_sim = np.concatenate([
-        np.random.normal(130, 85, 800),
-        np.random.normal(50,  30, 200)
-    ])
+
+    rul_sim_1 = np.random.normal(loc=130, scale=85, size=800)
+    rul_sim_2 = np.random.normal(loc=50, scale=30, size=200)
+
+    rul_sim = np.concatenate([rul_sim_1, rul_sim_2])
+
+    # Keep only realistic RUL values
     rul_sim = rul_sim[(rul_sim >= 0) & (rul_sim <= 336)]
 
+    # Fallback in case filtering removes too much
+    if len(rul_sim) == 0:
+        rul_sim = np.random.uniform(0, 336, 500)
+
+    # Build histogram
     fig_dist = go.Figure()
-    fig_dist.add_trace(go.Histogram(
-        x=rul_sim, nbinsx=40,
-        marker=dict(
-            color='#00d4ff',
-            opacity=0.7,
-            line=dict(width=0)
-        ),
-        name='RUL Distribution'
-    ))
+
+    fig_dist.add_trace(
+        go.Histogram(
+            x=rul_sim,
+            nbinsx=35,
+            marker=dict(
+                color="#00d4ff",
+                line=dict(
+                    color="#0a0e1a",
+                    width=1
+                )
+            ),
+            opacity=0.85
+        )
+    )
+
     fig_dist.update_layout(
-        height=240,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+        height=300,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#111827",
+        font=dict(
+            family="Share Tech Mono",
+            color="#e8eaf0"
+        ),
         xaxis=dict(
-            title='RUL (hours)',
-            titlefont=dict(color='#8892a4', size=10, family='Share Tech Mono'),
-            tickfont=dict(color='#8892a4', size=9, family='Share Tech Mono'),
-            gridcolor='rgba(255,255,255,0.04)'
+            title=dict(
+                text="RUL (hours)",
+                font=dict(color="#8892a4", size=11)
+            ),
+            tickfont=dict(color="#8892a4", size=10),
+            gridcolor="rgba(255,255,255,0.06)",
+            zeroline=False
         ),
         yaxis=dict(
-            title='Frequency',
-            titlefont=dict(color='#8892a4', size=10, family='Share Tech Mono'),
-            tickfont=dict(color='#8892a4', size=9, family='Share Tech Mono'),
-            gridcolor='rgba(255,255,255,0.04)'
+            title=dict(
+                text="Frequency",
+                font=dict(color="#8892a4", size=11)
+            ),
+            tickfont=dict(color="#8892a4", size=10),
+            gridcolor="rgba(255,255,255,0.06)",
+            zeroline=False
         ),
-        margin=dict(l=0, r=0, t=10, b=0),
-        showlegend=False
+        margin=dict(l=50, r=20, t=20, b=50),
+        showlegend=False,
+        bargap=0.08
     )
-    st.plotly_chart(fig_dist, use_container_width=True,
-                    config={'displayModeBar': False})
+
+    st.plotly_chart(
+        fig_dist,
+        width="stretch",
+        config={"displayModeBar": False}
+    )
 
     # ── Retrain Section ───────────────────────────────────
     st.markdown("<div class='section-header'>Model Retraining</div>",
@@ -974,7 +1009,7 @@ elif "📊" in page:
         </div>
     </div>""", unsafe_allow_html=True)
 
-    if st.button("🔄  TRIGGER RETRAINING PIPELINE", use_container_width=False):
+    if st.button("  TRIGGER RETRAINING PIPELINE", use_container_width=False):
         with st.spinner("Training in progress — this may take several minutes..."):
             result, error = call_train_api()
         if error:
@@ -995,14 +1030,14 @@ elif "📊" in page:
 # PAGE: ABOUT
 # ══════════════════════════════════════════════════════════
 
-elif "ℹ️" in page:
+elif page == "About":
 
     st.markdown("""
     <h1 style='font-size:2rem;margin-bottom:4px;'>
         About <span style='color:#00d4ff;'>This System</span>
     </h1>
     <p style='color:#8892a4;font-size:0.9rem;margin-bottom:28px;'>
-        Bosch Hydraulic Predictive Maintenance Project
+        Bosch Rexroth AG Hydraulic Predictive Maintenance Project
     </p>
     """, unsafe_allow_html=True)
 
@@ -1018,13 +1053,13 @@ elif "ℹ️" in page:
             The pipeline ingests pressure, temperature, flow, vibration, and RPM
             sensor readings, engineers domain-specific features, and applies a
             <span style='color:#00d4ff;'>Gradient Boosting Regressor</span>
-            to predict how many hours remain before maintenance is required. Project designed by Amdari Group 1 (March Cohort)<br><br>
+            to predict how many hours remain before maintenance is required.<br><br>
             Experiment tracking is handled via
             <span style='color:#ff6b35;'>MLflow + DagsHub</span>,
             model artifacts are stored in
             <span style='color:#ff6b35;'>AWS S3</span>, and
             predictions are served through a
-            <span style='color:#ff6b35;'>FastAPI</span> backend.
+            <span style='color:#ff6b35;'>FastAPI</span> backend. This project was designed by Amdari Group 1(March Cohort)
         </div>
         """, unsafe_allow_html=True)
 
@@ -1032,13 +1067,13 @@ elif "ℹ️" in page:
         st.markdown("<div class='section-header'>Tech Stack</div>",
                     unsafe_allow_html=True)
         tech_stack = [
-            ("🐍", "Python 3.x",        "Core language"),
-            ("🌲", "Scikit-learn",       "ML modelling"),
-            ("⚡", "XGBoost",           "Gradient boosting"),
-            ("📊", "MLflow + DagsHub",  "Experiment tracking"),
-            ("☁️", "AWS S3",            "Artifact storage"),
-            ("🚀", "FastAPI",           "Prediction API"),
-            ("🎯", "Streamlit",         "This dashboard"),
+            ("1.", "Python 3.x",        "Core language"),
+            ("2.", "Scikit-learn",       "ML modelling"),
+            ("3.", "Gradient Boosting",   "Registered ML Model"),
+            ("4.", "MLflow + DagsHub",  "Experiment tracking"),
+            ("5.", "AWS S3",            "Artifact storage"),
+            ("6.", "FastAPI",           "Prediction API"),
+            ("7.", "Streamlit",         "This dashboard"),
         ]
         st.markdown("""<div class='metric-card'>
         <table class='styled-table'>
@@ -1055,8 +1090,8 @@ elif "ℹ️" in page:
     dataset_stats = [
         ("864,000",  "Total Sensor Rows"),
         ("126,720",  "Anomaly Rows (RUL Data)"),
-        ("9",        "HPU Machines"),
-        ("36",       "Engineered Features"),
+        ("10",        "HPU Machines"),
+        ("58",       "Engineered Features"),
     ]
     for col, (val, label) in zip([ds1, ds2, ds3, ds4], dataset_stats):
         with col:
