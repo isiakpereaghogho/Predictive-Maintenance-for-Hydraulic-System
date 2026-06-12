@@ -19,8 +19,8 @@ jobs:
     - name: Load environment variables
       run: |
         echo "AWS_REGION=${{secrets.AWS_REGION}}" >> $GITHUB_ENV
-        echo "ECR_REGISTRY=${{secrets.AWS_REGION}}" >> $GITHUB_ENV
-        echo "ECR_REPOSITORY=${{secrets.AWS_REGION}}" >> $GITHUB_ENV
+        echo "ECR_REGISTRY=${{secrets.AWS_REGISTRY}}" >> $GITHUB_ENV
+        echo "ECR_REPOSITORY=${{secrets.AWS_REPOSITORY}}" >> $GITHUB_ENV
 
         echo "BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN=&{{secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN}}" >> $GITHUB_ENV
         echo "MLFLOW_TRACKING_USERNAME=&{{secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN}}" >> $GITHUB_ENV
