@@ -74,7 +74,7 @@ jobs:
           docker rm fastapi.app || true
 
           echo "Logging into ECR using IAM role..."
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }}\
           | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
           echo "Pulling latest image..."
@@ -85,7 +85,7 @@ jobs:
             -p 8000:8000 \
             --name fastapi-app \
             --restart unless-stopped \
-            -e BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN=$BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN \
+            -e BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN=$BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN\
             -e MLFLOW_TRACKING_USERNAME=$MLFLOW_TRACKING_USERNAME \ 
             -e MLFLOW_TRACKING_PASSWORD=$MLFLOW_TRACKING_PASSWORD \ 
             ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest
