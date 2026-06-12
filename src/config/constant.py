@@ -28,6 +28,10 @@ MODEL_STAGE = "5"
 
 S3_ARTIFACT_ROOT = f"s3://{BUCKET_NAME}/mlflow_artifacts"
 
+ARTIFACTS_DIR = os.path.join(BASE_DIR, "artifacts")
+LOCAL_MODEL_PATH = os.path.join(ARTIFACTS_DIR, "model.joblib")
+
 DAGSHUB_OWNER = "isiakpereaghogho"
 DAGSHUB_REPO = "Predictive-Maintenance-for-Hydraulic-System"
 EXPERIMENT = "bosch_predictive_maintenance"
+

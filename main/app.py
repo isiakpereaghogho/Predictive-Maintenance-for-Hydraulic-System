@@ -10,6 +10,8 @@ from src.pipeline.training import TrainingPipeline
 from src.logger import setup_logger
 from src.exceptions import CustomException
 from mlflow.tracking import MlflowClient
+import joblib
+import json
 
 
 
@@ -17,7 +19,10 @@ logging = setup_logger()
 
 app = FastAPI(title="RUL Prediction API")
 
-setup_mlflow()
+try:
+    setup_mlflow()
+except Exception as e:
+    logging.error(f"MLflow/DagsHub setup failed: {e}")
 
 s3 = S3Storage(BUCKET_NAME)
 
@@ -26,27 +31,44 @@ model_info = {}
 
 def load_artifacts():
     try:
+        # Try loading from MLflow/DagsHub first
+        try:
+            model, model_info = load_best_model_by_r2("gb_model")
+            logging.info(
+                f"Loaded best model from MLflow: version {model_info.get('best_version')}"
+            )
 
-        client = MlflowClient()
+        except Exception as e:
+            logging.error(f"Failed to load model from MLflow/DagsHub: {e}")
+            logging.info("Loading local backup model instead")
 
-        versions = client.search_model_versions("name='gb_model'")
+            model = joblib.load("artifacts/model.joblib")
 
-        latest_version = max(int(v.version) for v in versions)
+            model_info = {
+                "model_name": "local_backup_model",
+                "best_version": "local",
+                "best_r2": None,
+                "source": "local_backup"
+            }
 
-        model, model_info = load_best_model_by_r2("gb_model")
-        
-        logging.info(f"Loaded gb_model version {latest_version}")
-
-        json_key = s3.get_latest_file(prefix="features/",keyword="features_metadata")
+        # Load feature metadata from S3
+        json_key = s3.get_latest_file(
+            prefix="features/",
+            keyword="features_metadata"
+        )
 
         feature_cols = s3.load_json(json_key)["FINAL_FEATURES_RUL"]
 
-        csv_key = s3.get_latest_file(prefix="features/",keyword="rul_dataset")
+        # Load dataset from S3
+        csv_key = s3.get_latest_file(
+            prefix="features/",
+            keyword="rul_dataset"
+        )
 
         dataset = s3.load_csv(csv_key)
         dataset["timestamp"] = pd.to_datetime(dataset["timestamp"])
 
-        return model, dataset, feature_cols,  model_info
+        return model, dataset, feature_cols, model_info
 
     except Exception as e:
         logging.error(f"Error loading artifacts: {e}")
@@ -55,8 +77,7 @@ def load_artifacts():
             status_code=500,
             detail=f"Failed to load artifacts: {e}"
         )
-
-
+    
 # load at startup
 @app.on_event("startup")
 def startup_event():

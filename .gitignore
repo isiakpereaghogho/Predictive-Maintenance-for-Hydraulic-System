@@ -184,4 +184,7 @@ boschrexroth_env/
 .env
 logs/
 notebook/
-bosch_roxroth.pem
+bosch-rexroth-key.pem
+artifacts
+
+Registry_url = "577881328276.dkr.ecr.us-east-1.amazonaws.com/predictive-maintenance-for-hydraulic-system:latest"

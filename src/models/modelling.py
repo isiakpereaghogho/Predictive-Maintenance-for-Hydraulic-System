@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
-
+import os
+import joblib
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
@@ -128,24 +129,36 @@ class ModellingPipeline:
 
         rmse, mae, r2 = self.evaluate()
 
+        # Save local backup model
+        artifacts_dir = "artifacts"
+        model_path = os.path.join(artifacts_dir, "model.joblib")
+
+        os.makedirs(artifacts_dir, exist_ok=True)
+
+        print("Current working directory:", os.getcwd())
+        print("Saving model to:", os.path.abspath(model_path))
+
+        joblib.dump(self.model, model_path)
+
+        logging.info(f"Local backup model saved to {model_path}")
+
         registry = ModelRegistry()
 
         registry.register(
-            model=self.model,
-            model_name="gb_model",
-            params=self.model.get_params(),
-            metrics={
-                "rmse": rmse,
-                "mae": mae,
-                "r2": r2
-            },
-            tags={
-                "stage": "dev",
-                "dataset": "hydraulic_system"
-            }
-        )
+        model=self.model,
+        model_name="gb_model",
+        params=self.model.get_params(),
+        metrics={
+            "rmse": rmse,
+            "mae": mae,
+            "r2": r2
+        },
+        tags={
+            "stage": "dev",
+            "dataset": "hydraulic_system"
+        })
 
-        logging.info("Model registered successfully")
+    logging.info("Model registered successfully")
 
 
 if __name__ == "__main__":

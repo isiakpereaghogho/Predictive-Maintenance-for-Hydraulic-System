@@ -125,6 +125,12 @@ st.markdown("""
         border: 1px solid var(--accent-orange);
         color: var(--accent-orange);
     }
+            
+    .status-caution {
+        background: rgba(255, 107, 53, 0.15);
+        border: 1px solid var(--accent-orange);
+        color: var(--accent-orange);
+    }
 
     .status-normal {
         background: rgba(0, 255, 136, 0.15);
@@ -182,7 +188,8 @@ st.markdown("""
     }
 
     .alert-critical { border-left-color: var(--accent-red); }
-    .alert-warning  { border-left-color: var(--accent-orange); }
+    .alert-warning  { border-left-color: var(--accent-orange);}
+    .alert-caution  { border-left-color: var(--accent-orange);
     .alert-success  { border-left-color: var(--accent-green); }
 
     /* ── Logo ── */
@@ -271,6 +278,8 @@ def get_rul_status(rul):
         return 'CRITICAL', 'status-critical', 'alert-critical'
     elif rul <= 72:
         return 'WARNING', 'status-warning', 'alert-warning'
+    elif rul <= 168:
+        return 'CAUTION', 'status-caution', 'alert-caution'
     else:
         return 'NORMAL', 'status-normal', 'alert-success'
 
@@ -758,6 +767,9 @@ elif page == "RUL Prediction":
                 elif status == 'WARNING':
                     msg = "🔶 Plan maintenance within the next 3 days."
                     ac  = "alert-warning"
+                elif status <= 'CAUTION':
+                    msg = "🔶 Plan maintenance within the next 7 days."
+                    ac  = "alert-caution"
                 else:
                     msg = "✅ Machine operating normally. Next check as scheduled."
                     ac  = "alert-success"
@@ -779,18 +791,20 @@ elif page == "RUL Prediction":
             </div>""", unsafe_allow_html=True)
 
     # ── Sensor Gauges ──────────────────────────────────────
-    st.markdown("<div style='margin:24px 0;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin:5px 0;'></div>", unsafe_allow_html=True)
     st.markdown("<div class='section-header'>Live Sensor Gauges</div>",
                 unsafe_allow_html=True)
 
-    g1, g2, g3, g4 = st.columns(4)
+    g1, g2, g3, g4, g5, g6 = st.columns(6)
     gauge_data = [
         (pressure_bar, 500,  "PRESSURE (bar)",   "#00d4ff"),
         (temp_celsius, 150,  "TEMPERATURE (°C)", "#ff6b35"),
         (flow_lpm,     200,  "FLOW (lpm)",       "#00ff88"),
         (pump_rpm,     3000, "PUMP RPM",         "#a78bfa"),
+        (vibration_x,     5, "VIBRATION X_g",    "#a8cf0a"),
+        (vibration_y,     5, "VIBRATION Y_g",    "#b40936"),
     ]
-    for col, (val, max_v, title, color) in zip([g1, g2, g3, g4], gauge_data):
+    for col, (val, max_v, title, color) in zip([g1, g2, g3, g4, g5, g6], gauge_data):
         with col:
             st.plotly_chart(
                 make_gauge(val, max_v, title, color),
@@ -1059,7 +1073,8 @@ elif page == "About":
             model artifacts are stored in
             <span style='color:#ff6b35;'>AWS S3</span>, and
             predictions are served through a
-            <span style='color:#ff6b35;'>FastAPI</span> backend. This project was designed by Amdari Group 1(March Cohort)
+            <span style='color:#ff6b35;'>FastAPI</span> backend.
+            <span style='color:#ff6b35;'>This project was designed by Amdari Group 1(March Cohort)</span>
         </div>
         """, unsafe_allow_html=True)
 

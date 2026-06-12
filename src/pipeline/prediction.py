@@ -57,25 +57,12 @@ def predict_rul(
         if sensor_input['pump_rpm'] != 0 else 0
     )
 
-    # new_row['vibration_flow_ratio'] = (
-    #     new_row['vibration_magnitude'] /
-    #     sensor_input['flow_lpm']
-    #     if sensor_input['flow_lpm'] != 0 else 0
-    # )
-
-    # new_row['pump_efficiency_index'] = (
-    #     (sensor_input['flow_lpm'] * sensor_input['pressure_bar']) /
-    #     sensor_input['pump_rpm']
-    #     if sensor_input['pump_rpm'] != 0 else 0
-    # )
-
     new_row['pressure_temp_ratio'] = (
         sensor_input['pressure_bar'] /
         sensor_input['temp_celsius']
         if sensor_input['temp_celsius'] != 0 else 0
     )
 
-    # new_row['machine_age_days'] = latest.get('machine_age_days', 0)
     # Create day_of_week because model was trained with it
     new_row["day_of_week"] = pd.Timestamp.now().dayofweek
     
@@ -84,11 +71,6 @@ def predict_rul(
     new_row["shift"] = latest.get('shift', 0)
 
     new_row["fluid_type"] = latest.get('fluid_type', 0)
-
-    # new_row['days_since_filter_change'] = latest.get(
-    #     'days_since_filter_change',
-    #     0
-    # )
 
     history = machine_df.tail(15)
 
@@ -160,7 +142,7 @@ def predict_rul(
         status = 'CRITICAL'
     elif rul_hours <= 72:
         status = 'WARNING'
-    elif rul_hours <= 180:
+    elif rul_hours <= 168:
         status = 'CAUTION'
     else:
         status = 'NORMAL'
@@ -170,8 +152,6 @@ def predict_rul(
         "rul_hours": float(rul_hours),
         "rul_days": float(rul_days),
         "status": status,
-        "machine_age_days": float(new_row.get('machine_age_days', 0)),
-        "days_since_filter_change": float(
-            new_row.get('days_since_filter_change', 0)
-        )
+        #"machine_age_days": float(new_row.get('machine_age_days', 0)),
+        #"days_since_filter_change": float(new_row.get('days_since_filter_change', 0))
     }
