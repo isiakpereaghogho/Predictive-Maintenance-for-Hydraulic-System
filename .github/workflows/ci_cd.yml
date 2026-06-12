@@ -22,9 +22,9 @@ jobs:
         echo "ECR_REGISTRY=${{secrets.AWS_REGION}}" >> $GITHUB_ENV
         echo "ECR_REPOSITORY=${{secrets.AWS_REGION}}" >> $GITHUB_ENV
 
-        echo "bosch_prediction_env_Dagshub_token=&{{secrets.bosch_prediction_env_Dagshub_token}}" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_USERNAME=&{{secrets.bosch_prediction_env_Dagshub_token}}" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_PASSWORD=&{{secrets.bosch_prediction_env_Dagshub_token}}" >> $GITHUB_ENV
+        echo "BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN=&{{secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN}}" >> $GITHUB_ENV
+        echo "MLFLOW_TRACKING_USERNAME=&{{secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN}}" >> $GITHUB_ENV
+        echo "MLFLOW_TRACKING_PASSWORD=&{{secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN}}" >> $GITHUB_ENV
 
     # 3. Configure AWS Credentials (ONLY for Github to ECR push)
     - name: Configure AWS credentials
@@ -64,7 +64,7 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
 
         # Only pass MLflow secrets to EC2
-        envs: bosch_prediction_env_Dagshub_token,MLFLOW_TRACKING_USERNAME,MLFLOW_TRACKING_PASSWORD
+        envs: BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN,MLFLOW_TRACKING_USERNAME,MLFLOW_TRACKING_PASSWORD
 
         scripts: |
           set -e
@@ -85,7 +85,7 @@ jobs:
             -p 8000:8000 \
             --name fastapi-app \
             --restart unless-stopped \
-            -e bosch_prediction_env_Dagshub_token=$bosch_prediction_env_Dagshub_token \
+            -e BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN=$BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN \
             -e MLFLOW_TRACKING_USERNAME=$MLFLOW_TRACKING_USERNAME \ 
             -e MLFLOW_TRACKING_PASSWORD=$MLFLOW_TRACKING_PASSWORD \ 
             ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest
