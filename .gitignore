@@ -185,5 +185,6 @@ boschrexroth_env/
 logs/
 notebook/
 bosch-rexroth-key.pem
-artifacts
+artifacts/*
+!artifacts/model.joblib
 
