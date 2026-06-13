@@ -26,7 +26,7 @@ logging = setup_logger()
     
 experiment_name = EXPERIMENT
 def setup_mlflow():
-    dagshub_token = os.getenv('bosch_prediction_env_Dagshub_token')
+    dagshub_token = os.getenv('BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN')
     if not dagshub_token:
         raise EnvironmentError('bosch_prediction_env_Dagshub_token environment is not set')
     
