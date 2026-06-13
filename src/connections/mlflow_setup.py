@@ -48,7 +48,7 @@ def load_best_model_by_r2(registered_model_name: str = "gb_model"):
         model: loaded sklearn model
         model_info: dictionary containing selected model metadata
     """
-
+    setup_mlflow()
     client = MlflowClient()
 
     logging.info(f"Searching MLflow registered model versions for: {registered_model_name}")
