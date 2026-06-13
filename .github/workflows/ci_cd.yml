@@ -22,10 +22,9 @@ jobs:
         echo "ECR_REGISTRY=${{secrets.ECR_REGISTRY}}" >> $GITHUB_ENV
         echo "ECR_REPOSITORY=${{secrets.ECR_REPOSITORY}}" >> $GITHUB_ENV
 
-        echo "BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN=&{{secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN}}" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_USERNAME=&{{secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN}}" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_PASSWORD=&{{secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN}}" >> $GITHUB_ENV
-
+        echo "BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN=${{ secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN }}" >> $GITHUB_ENV
+        echo "MLFLOW_TRACKING_USERNAME=${{ secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN }}" >> $GITHUB_ENV
+        echo "MLFLOW_TRACKING_PASSWORD=${{ secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN }}" >> $GITHUB_ENV
     # 3. Configure AWS Credentials (ONLY for Github to ECR push)
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
@@ -58,24 +57,25 @@ jobs:
     # 8. Deploy to EC2 (NO AWS KEYS HERE)
     - name: Deploy to EC2 via SSH
       uses: appleboy/ssh-action@v0.1.6
+      env:
+        BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN: ${{ secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN }}
+        MLFLOW_TRACKING_USERNAME: ${{ secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN }}
+        MLFLOW_TRACKING_PASSWORD: ${{ secrets.BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN }}
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
-
-        # Only pass MLflow secrets to EC2
         envs: BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN,MLFLOW_TRACKING_USERNAME,MLFLOW_TRACKING_PASSWORD
-
         script: |
           set -e
 
           echo "Stopping old container..."
-          docker stop fastapi.app || true
-          docker rm fastapi.app || true
+          docker stop fastapi-app || true
+          docker rm fastapi-app || true
 
           echo "Logging into ECR using IAM role..."
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-          | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+            | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
           echo "Pulling latest image..."
           docker pull ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest
@@ -85,12 +85,7 @@ jobs:
             -p 8000:8000 \
             --name fastapi-app \
             --restart unless-stopped \
-            -e BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN=$BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN \
-            -e MLFLOW_TRACKING_USERNAME=$MLFLOW_TRACKING_USERNAME \ 
-            -e MLFLOW_TRACKING_PASSWORD=$MLFLOW_TRACKING_PASSWORD \ 
+            -e BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN="$BOSCH_PREDICTION_ENV_DAGSHUB_TOKEN" \
+            -e MLFLOW_TRACKING_USERNAME="$MLFLOW_TRACKING_USERNAME" \
+            -e MLFLOW_TRACKING_PASSWORD="$MLFLOW_TRACKING_PASSWORD" \
             ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest
-
-
-
-
-
