@@ -1,8 +1,6 @@
 # Predictive Maintenance for Hydraulic System
 The Predictive Maintenance project for Bosch Rexroth AG focuses on developing an intelligent machine learning system that predicts hydraulic equipment failures before breakdowns occur.
 
-# Predictive Maintenance for Hydraulic Systems
-
 ## Project Overview
 
 This project develops an end-to-end machine learning and MLOps solution for predicting the **Remaining Useful Life (RUL)** of hydraulic systems used by **Bosch Rexroth AG**. The objective is to enable proactive maintenance by identifying equipment degradation before failure occurs, reducing unplanned downtime, maintenance costs, and operational risks.
